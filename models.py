@@ -94,7 +94,7 @@ class Servicio(Base):
     imagenes = Column(ARRAY(LargeBinary))
     proveedor = relationship("Users", back_populates="servicios")
     calificaciones = relationship('Calificacion', back_populates='servicio')
-
+   
 
 class Solicitud(Base):
     __tablename__ = "solicitud"
@@ -104,9 +104,10 @@ class Solicitud(Base):
     fecha = Column(TIMESTAMP(timezone=True), server_default=func.now())
     hora = Column(Time)
     costo = Column(DECIMAL)
+    fecha_servicio = Column(TIMESTAMP)
     cliente_id = Column(Integer, ForeignKey("users.user_id"))
     servicio_id = Column(Integer, ForeignKey("servicio.servicio_id"))
-
+    cancelado = Column(Boolean, default=False)
     cliente = relationship("Users", back_populates="solicitudes")
     servicio = relationship("Servicio")
 

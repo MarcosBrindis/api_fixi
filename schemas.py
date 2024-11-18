@@ -120,19 +120,19 @@ class ServicioImageUploadSchema(BaseModel):
 #------------------------------------------------
 
 class SolicitudBase(BaseModel):
-
     hora: Optional[time] = None
-    costo: condecimal(gt=0)
-    cliente_id: int
     servicio_id: int
-
+    fecha_servicio: Optional[datetime] = None
 class SolicitudCreate(SolicitudBase):
     pass
 
 class Solicitud(SolicitudBase):
     solicitud_id: int
+    cliente_id: int
     status: str
     fecha: datetime
+    costo: condecimal(gt=0)
+    cancelado:bool
     class Config:
         orm_mode = True
         

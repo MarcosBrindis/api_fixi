@@ -11,6 +11,8 @@ from schemas import (
 from typing import List, Optional
 from utils.security import hash_password 
 from datetime import datetime
+from fastapi import HTTPException
+from sqlalchemy.orm import joinedload,aliased
 
 # CRUD for Users
 async def get_user(db: AsyncSession, user_id: int):
@@ -95,13 +97,16 @@ async def delete_servicio(db: AsyncSession, servicio_id: int):
 #------------------------------------------------------------------
 
 # Crear Solicitud
-async def create_solicitud(db: AsyncSession, solicitud: SolicitudCreate):
+async def create_solicitud(db: AsyncSession, solicitud: SolicitudCreate, current_user: dict):
+    servicio = await get_servicio(db, solicitud.servicio_id)
+    if not servicio:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
     db_solicitud = Solicitud(
-
         hora=solicitud.hora,
-        costo=solicitud.costo,
-        cliente_id=solicitud.cliente_id,
-        servicio_id=solicitud.servicio_id
+        costo=servicio.costo, 
+        cliente_id=current_user["user_id"], 
+        servicio_id=solicitud.servicio_id,
+        fecha_servicio=solicitud.fecha_servicio
     )
     db.add(db_solicitud)
     await db.commit()
@@ -109,26 +114,95 @@ async def create_solicitud(db: AsyncSession, solicitud: SolicitudCreate):
     return db_solicitud
 
 # Obtener una Solicitud por ID
-async def get_solicitud(db: AsyncSession, solicitud_id: int):
-    result = await db.execute(select(Solicitud).filter(Solicitud.solicitud_id == solicitud_id))
-    return result.scalars().first()
+async def get_solicitud(db: AsyncSession, solicitud_id: int, current_user: dict):
+    # Consulta solicitud junto con servicio y proveedor
+    result = await db.execute(
+        select(Solicitud)
+        .options(joinedload(Solicitud.servicio))
+        .filter(Solicitud.solicitud_id == solicitud_id)
+    )
+    db_solicitud = result.scalars().first()
+
+    if not db_solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    
+    # Verifica si el usuario es cliente o proveedor autorizado
+    if (db_solicitud.cliente_id != current_user["user_id"] and
+        db_solicitud.servicio.proveedor_id != current_user["user_id"]):
+        raise HTTPException(status_code=403, detail="No tienes permiso para ver esta solicitud")
+    
+    return db_solicitud
 
 # Obtener todas las Solicitudes
-async def get_solicitudes(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(select(Solicitud).offset(skip).limit(limit))
-    return result.scalars().all()  
+async def get_solicitudes(db: AsyncSession, current_user: dict, skip: int = 0, limit: int = 10):
+    # Alias para el modelo Servicio
+    ServicioAlias = aliased(Servicio)
 
+    # Consulta inicial con join a Servicio
+    query = select(Solicitud).join(Solicitud.servicio)
+
+    # Filtra según el rol del usuario
+    if current_user["tipo_usuario"] == "Cliente":
+        query = query.filter(Solicitud.cliente_id == current_user["user_id"])
+    elif current_user["tipo_usuario"] == "Proveedor":
+        # Asegúrate de filtrar correctamente usando el alias
+        query = query.filter(Solicitud.servicio.has(Servicio.proveedor_id == current_user["user_id"]))
+    else:
+        raise HTTPException(status_code=403, detail="No tienes permisos para ver solicitudes")
+
+    # Paginación y ejecución
+    query = query.offset(skip).limit(limit)
+    result = await db.execute(query)
+
+    return result.scalars().all()
 
 
 # Actualizar el estado de una Solicitud
-async def update_solicitud_status(db: AsyncSession, solicitud_id: int, status: str):
-    result = await db.execute(select(Solicitud).filter(Solicitud.solicitud_id == solicitud_id))
+async def update_solicitud_status(db: AsyncSession, solicitud_id: int, status: str, current_user: dict):
+    # Consultar la solicitud junto con el servicio
+    result = await db.execute(
+        select(Solicitud).options(joinedload(Solicitud.servicio)).filter(Solicitud.solicitud_id == solicitud_id)
+    )
     db_solicitud = result.scalars().first()
-    if db_solicitud:
-        db_solicitud.status = status
-        await db.commit()
-        await db.refresh(db_solicitud)
+    # Verificar que la solicitud exista
+    if not db_solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    # Verificar que el usuario actual sea el proveedor del servicio
+    if db_solicitud.servicio.proveedor_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="No tienes permiso para actualizar esta solicitud")
+    # Actualizar el estado
+    db_solicitud.status = status
+    await db.commit()
+    await db.refresh(db_solicitud)
     return db_solicitud
+
+
+async def update_solicitud_cancelado(
+    db: AsyncSession, 
+    solicitud_id: int, 
+    cancelado: bool, 
+    current_user: dict
+):
+    # Consultar la solicitud con la relación al servicio
+    result = await db.execute(
+        select(Solicitud)
+        .options(joinedload(Solicitud.servicio))
+        .filter(Solicitud.solicitud_id == solicitud_id)
+    )
+    db_solicitud = result.scalars().first()
+    # Verificar si la solicitud existe
+    if not db_solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    # Verificar si el usuario actual tiene permiso para modificar la solicitud
+    if (db_solicitud.cliente_id != current_user["user_id"] and 
+        db_solicitud.servicio.proveedor_id != current_user["user_id"]):
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta solicitud")
+    # Realizar el borrado lógico
+    db_solicitud.cancelado = cancelado
+    await db.commit()
+    await db.refresh(db_solicitud)
+    return db_solicitud
+
 
 # Eliminar Solicitud
 async def delete_solicitud(db: AsyncSession, solicitud_id: int):
