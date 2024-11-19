@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models import (
-    Users, perfil, Cliente, Proveedor, Admin,Servicio,Solicitud,Historial,Pago,Calificacion,Chat
+    Users, perfil, Cliente, Proveedor, Admin,Servicio,Solicitud,Historial,Pago,Calificacion,Chat,PerfilModel
 )
 from schemas import (
     UserCreateSchema, ClienteCreateSchema, ProveedorCreateSchema,
@@ -13,6 +13,45 @@ from utils.security import hash_password
 from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload,aliased
+from database import mongo_db
+from bson import ObjectId
+
+
+#perfil
+
+async def create_perfil(perfil_data: dict):
+    result = await mongo_db.perfil.insert_one(perfil_data)
+    return str(result.inserted_id)
+
+# Obtener perfil por ID
+async def get_perfil(perfil_id: str) -> dict:
+    perfil = await mongo_db.perfil.find_one({"_id": ObjectId(perfil_id)})
+    if perfil:
+        perfil["_id"] = str(perfil["_id"])  # Convertir ObjectId a string
+    return perfil
+
+# Obtener todos los perfiles
+async def get_all_perfiles():
+    perfiles_cursor = mongo_db.perfil.find()
+    perfiles = await perfiles_cursor.to_list(length=100)
+    for perfil in perfiles:
+        perfil["_id"] = str(perfil["_id"])
+    return perfiles
+
+# Actualizar un perfil
+async def update_perfil(perfil_id: str, perfil_data: dict):
+    result = await mongo_db.perfil.update_one(
+        {"_id": ObjectId(perfil_id)},
+        {"$set": perfil_data}
+    )
+    return result.modified_count > 0
+
+# Eliminar un perfil
+async def delete_perfil(perfil_id: str):
+    result = await mongo_db.perfil.delete_one({"_id": ObjectId(perfil_id)})
+    return result.deleted_count > 0
+
+#-------------------------------------------------------------------------------
 
 # CRUD for Users
 async def get_user(db: AsyncSession, user_id: int):
@@ -421,3 +460,5 @@ async def delete_chat(db: AsyncSession, chat_id: int) -> Optional[Chat]:
         await db.delete(db_chat)
         await db.commit()
     return db_chat
+
+#-------------------------------------------------------------------------------------

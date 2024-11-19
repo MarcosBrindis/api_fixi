@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from database import engine, Base
-from routers import pagos, users, servicios, solicitudes, historial, calificacion, chats, auth
+from routers import pagos, users, servicios, solicitudes, historial, calificacion, chats, auth, profile
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,3 +30,4 @@ app.include_router(pagos.router, prefix="/pagos", tags=["Pagos"])
 app.include_router(calificacion.router, prefix="/calificaciones", tags=["Calificaciones"])
 app.include_router(chats.router, prefix="/chats", tags=["Chats"])
 app.include_router(auth.router, prefix="/auth")
+app.include_router(profile.router, prefix="/perfil", tags=["perfiles"])

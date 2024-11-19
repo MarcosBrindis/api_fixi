@@ -2,18 +2,28 @@ from pydantic import BaseModel,Field, condecimal,EmailStr
 from typing import Optional, List
 from datetime import datetime, time
 from fastapi import UploadFile
+from bson import ObjectId
 
-class perfilSchema(BaseModel):
-    perfil_id: int
-    description: Optional[str] = None
-    habilidades: List[str] = []
-    telefono: Optional[str] = None
-    direccion: Optional[dict] = None
+
+class Direccion(BaseModel):
+    ciudad: str
+    colonia: str
+    avenida: str
+    numexterior: int
+    codigopost: int
+ 
+ 
+ 
+# Esquema de perfil para validación de datos
+class PerfilSchema(BaseModel):
+    foto: Optional[bytes]
+    description: Optional[str]
+    habilidades: Optional[List[str]] = []
+    telefono: Optional[str]
+    direccion: Optional[dict]
 
     class Config:
-        from_attributes = True  # Cambiado para Pydantic v2
-        
-        
+        orm_mode = True
 #------------------------------------
 
 class UserSchema(BaseModel):

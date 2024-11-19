@@ -9,7 +9,9 @@ Base = declarative_base()
 from models import Base  
 from sqlalchemy.types import TypeDecorator
 import json
-
+from pydantic import BaseModel
+from typing import List, Optional,Dict, Any
+from bson import Binary,ObjectId
 
 
 class status(str, enum.Enum):
@@ -19,16 +21,44 @@ class status(str, enum.Enum):
     FINALIZADO = 'FINALIZADO'
 
 
+class PydanticObjectId(str):  
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, ObjectId):
+            raise ValueError("Invalid ObjectId")
+        return str(v)  # Lo convertimos a string para que sea compatible con Pydantic
+
+
+class PerfilModel(BaseModel):
+    id: Optional[PydanticObjectId] = None  
+    foto: Optional[bytes  ]  
+    description: Optional[str]
+    habilidades: Optional[List[str]] = []  
+    telefono: Optional[str] = None
+    direccion: Optional[dict] = None  # direccion guardada como un diccionario
+    
+    class Config:
+        from_attributes = True  # Usa 'from_attributes' en lugar de 'orm_mode'
+        str_strip_whitespace = True  # Elimina los espacios en blanco al inicio y final
+        str_min_length = 1  # Asegura que las cadenas no sean vacías
+
+
+
+
 class perfil(Base):
     __tablename__ = 'perfil'
 
     perfil_id = Column(Integer, primary_key=True, index=True)
-    foto = Column(LargeBinary)  # Cambiado de Text a LargeBinary
+    foto = Column(LargeBinary) 
     description = Column(Text)
     habilidades = Column(ARRAY(String))
     telefono = Column(String(20))
     direccion = Column(JSON)
-    fotoTrabajo = Column(LargeBinary)  # Cambiado de Text a LargeBinary
+
 
 
 class Users(Base):
