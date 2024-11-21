@@ -7,7 +7,7 @@ from pymongo.server_api import ServerApi
 from motor.motor_asyncio import AsyncIOMotorClient 
 
 # Configuración de MongoDB
-uri = "mongodb+srv://233305:12345678a@proymultidiciplinario.04jiu.mongodb.net/?retryWrites=true&w=majority&appName=proymultidiciplinario"
+uri = "mongodb+srv://233305:TMrCTRg4_Xwq5Jr@proymultidiciplinario.04jiu.mongodb.net/?retryWrites=true&w=majority&appName=proymultidiciplinario"
 client = AsyncIOMotorClient(uri)
 mongo_db =client.proymultidiciplinario
 # Send a ping to confirm a successful connection

@@ -220,7 +220,6 @@ class CalificacionSchema(BaseModel):
 class CalificacionCreateSchema(BaseModel):
     puntuaje: int
     reseña: Optional[str] = None
-    cliente_id: int
     servicio_id: int
     
 #-------------------------------------
@@ -228,16 +227,19 @@ class ChatSchema(BaseModel):
     chat_id: int
     mensaje: str
     fechacreate: datetime
-    proveedor_id: int
-    cliente_id: int
+    resepto_id: int
+    emisor_id: int
 
     class Config:
         from_attributes = True
 
 class ChatCreateSchema(BaseModel):
     mensaje: str
-    proveedor_id: int
-    cliente_id: int
+    resepto_id: int
+
+class ChatUpdateSchema(BaseModel):
+    mensaje: str
+
     
     
 #--------------------------------------------

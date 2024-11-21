@@ -77,6 +77,7 @@ class Users(Base):
     servicios = relationship("Servicio", back_populates="proveedor")
     solicitudes = relationship("Solicitud", back_populates="cliente")
     calificaciones = relationship("Calificacion", back_populates="cliente")
+    historial = relationship("Historial", back_populates="cliente")
    # pagos = relationship("pagos", back_populates="cliente")
 
 class Cliente(Base):
@@ -86,7 +87,6 @@ class Cliente(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), unique=True)
 
     user = relationship("Users", back_populates="cliente")
-    historial = relationship("Historial", back_populates="cliente")
 
 
 
@@ -124,7 +124,7 @@ class Servicio(Base):
     imagenes = Column(ARRAY(LargeBinary))
     proveedor = relationship("Users", back_populates="servicios")
     calificaciones = relationship('Calificacion', back_populates='servicio')
-   
+    
 
 class Solicitud(Base):
     __tablename__ = "solicitud"
@@ -147,10 +147,10 @@ class Historial(Base):
 
     historial_id = Column(Integer, primary_key=True, index=True)
     fecha = Column(DateTime(timezone=True), server_default=func.now())
-    cliente_id = Column(Integer, ForeignKey("cliente.cliente_id"))
+    cliente_id = Column(Integer, ForeignKey("users.user_id"))
     servicio_id = Column(Integer, ForeignKey("servicio.servicio_id"), nullable=True)
 
-    cliente = relationship("Cliente", back_populates="historial")
+    cliente = relationship("Users", back_populates="historial")
     servicio = relationship("Servicio")
 
 
@@ -188,10 +188,10 @@ class Chat(Base):
     chat_id = Column(Integer, primary_key=True, index=True)
     mensaje = Column(Text, nullable=False)
     fechacreate = Column(TIMESTAMP, server_default=func.now())
-    proveedor_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
-    cliente_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    resepto_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    emisor_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
 
-    proveedor = relationship("Users", foreign_keys=[proveedor_id])
-    cliente = relationship("Users", foreign_keys=[cliente_id])
+    proveedor = relationship("Users", foreign_keys=[resepto_id])
+    cliente = relationship("Users", foreign_keys=[emisor_id])
     
     

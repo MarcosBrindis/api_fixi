@@ -6,7 +6,7 @@ from models import (
 from schemas import (
     UserCreateSchema, ClienteCreateSchema, ProveedorCreateSchema,
     AdminCreateSchema,ServicioCreateSchema,SolicitudCreate,HistorialCreate,PagoCreateSchema,PagoSchema,DireccionSchema,TarjetaSchema,
-    CalificacionCreateSchema, ChatCreateSchema
+    CalificacionCreateSchema, ChatCreateSchema,ChatUpdateSchema
 )
 from typing import List, Optional
 from utils.security import hash_password 
@@ -263,13 +263,22 @@ async def create_historial(db: AsyncSession, historial: HistorialCreate):
     await db.refresh(db_historial)
     return db_historial
 
-async def get_historial(db: AsyncSession, historial_id: int):
-    result = await db.execute(select(Historial).filter(Historial.historial_id == historial_id))
-    return result.scalars().first()
-
 async def get_historiales(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(select(Historial).offset(skip).limit(limit))
+    result = await db.execute(
+        select(Historial)
+        .options(joinedload(Historial.servicio))  # Cargar servicio asociado
+        .offset(skip)
+        .limit(limit)
+    )
     return result.scalars().all()
+
+async def get_historial(db: AsyncSession, historial_id: int):
+    result = await db.execute(
+        select(Historial)
+        .options(joinedload(Historial.servicio))  # Cargar servicio asociado
+        .filter(Historial.historial_id == historial_id)
+    )
+    return result.scalars().first()
 
 async def update_historial(db: AsyncSession, historial_id: int, historial_data: HistorialCreate):
     db_historial = await get_historial(db, historial_id)
@@ -393,18 +402,37 @@ async def get_calificacion(db: AsyncSession, calificacion_id: int):
     result = await db.execute(select(Calificacion).filter(Calificacion.calificacion_id == calificacion_id))
     return result.scalars().first()
 
-# Obtener todas las calificaciones con paginación
+# Obtener todas las calificaciones
 async def get_calificaciones(db: AsyncSession, skip: int = 0, limit: int = 10):
     result = await db.execute(select(Calificacion).offset(skip).limit(limit))
     return result.scalars().all()
 
+
+async def check_solicitud_finalizada(
+    db: AsyncSession, cliente_id: int, servicio_id: int
+) -> bool:
+    result = await db.execute(
+        select(Solicitud).filter(
+            Solicitud.cliente_id == cliente_id,
+            Solicitud.servicio_id == servicio_id,
+            Solicitud.status == "FINALIZADO"
+        )
+    )
+    return result.scalars().first() is not None
+
 # Crear una nueva calificación
-async def create_calificacion(db: AsyncSession, calificacion: CalificacionCreateSchema):
-    db_calificacion = Calificacion(**calificacion.dict())
+async def create_calificacion(db: AsyncSession, calificacion: CalificacionCreateSchema, cliente_id: int):
+    db_calificacion = Calificacion(
+        puntuaje=calificacion.puntuaje,
+        reseña=calificacion.reseña,
+        servicio_id=calificacion.servicio_id,
+        cliente_id=cliente_id,  # Asegúrate de incluir el cliente_id aquí
+    )
     db.add(db_calificacion)
     await db.commit()
     await db.refresh(db_calificacion)
     return db_calificacion
+
 
 # Actualizar una calificación existente
 async def update_calificacion(db: AsyncSession, calificacion_id: int, calificacion_data: CalificacionCreateSchema):
@@ -426,6 +454,8 @@ async def delete_calificacion(db: AsyncSession, calificacion_id: int):
 
 
 #-----------------------------------------------------------
+
+
 async def get_chats(db: AsyncSession, skip: int = 0, limit: int = 10) -> List[Chat]:
     result = await db.execute(select(Chat).offset(skip).limit(limit))
     return result.scalars().all()
@@ -435,30 +465,37 @@ async def get_chat(db: AsyncSession, chat_id: int) -> Optional[Chat]:
     result = await db.execute(select(Chat).filter(Chat.chat_id == chat_id))
     return result.scalars().first()
 
-# Crear un nuevo chat
-async def create_chat(db: AsyncSession, chat: ChatCreateSchema) -> Chat:
-    db_chat = Chat(**chat.dict())
+async def get_user_chats(db: AsyncSession, user_id: int, skip: int = 0, limit: int = 10) -> List[Chat]:
+    result = await db.execute(
+        select(Chat)
+        .filter((Chat.emisor_id == user_id) | (Chat.resepto_id == user_id))
+        .offset(skip)
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+async def create_chat(db: AsyncSession, chat_data: ChatCreateSchema, emisor_id: int) -> Chat:
+    # Asignar automáticamente el emisor
+    db_chat = Chat(**chat_data.dict(), emisor_id=emisor_id) 
     db.add(db_chat)
     await db.commit()
     await db.refresh(db_chat)
     return db_chat
 
-# Actualizar un chat existente
-async def update_chat(db: AsyncSession, chat_id: int, chat_data: ChatCreateSchema) -> Optional[Chat]:
+async def update_chat(db: AsyncSession, chat_id: int, chat_data: ChatUpdateSchema, user_id: int) -> Optional[Chat]:
     db_chat = await get_chat(db, chat_id)
-    if db_chat:
-        for key, value in chat_data.dict(exclude_unset=True).items():
-            setattr(db_chat, key, value)
+    if db_chat and db_chat.emisor_id == user_id:  # Solo el emisor puede modificar
+        db_chat.mensaje = chat_data.mensaje
         await db.commit()
         await db.refresh(db_chat)
     return db_chat
 
-# Eliminar un chat
-async def delete_chat(db: AsyncSession, chat_id: int) -> Optional[Chat]:
+async def delete_chat(db: AsyncSession, chat_id: int, user_id: int) -> Optional[Chat]:
     db_chat = await get_chat(db, chat_id)
-    if db_chat:
+    if db_chat and db_chat.emisor_id == user_id:  # Solo el emisor puede eliminar
         await db.delete(db_chat)
         await db.commit()
     return db_chat
+
 
 #-------------------------------------------------------------------------------------
