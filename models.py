@@ -70,7 +70,7 @@ class Users(Base):
     password = Column(String(100), nullable=False)
     fechacreate = Column(TIMESTAMP, server_default=func.now())
     tipo_usuario = Column(String(20), nullable=False)
-    perfil_id = Column(Integer, ForeignKey("perfil.perfil_id"))
+    perfil_id = Column(String, nullable=True)
     cliente = relationship("Cliente", back_populates="user", uselist=False)
     proveedor = relationship("Proveedor", back_populates="user", uselist=False)
     admin = relationship("Admin", back_populates="user", uselist=False)

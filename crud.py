@@ -15,13 +15,38 @@ from fastapi import HTTPException
 from sqlalchemy.orm import joinedload,aliased
 from database import mongo_db
 from bson import ObjectId
-
+import base64
+from PIL import Image
+from io import BytesIO
 
 #perfil
 
 async def create_perfil(perfil_data: dict):
     result = await mongo_db.perfil.insert_one(perfil_data)
     return str(result.inserted_id)
+
+async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes]):
+    if image_data:
+        try:
+            Image.open(BytesIO(image_data))  # Verifica si es una imagen válida
+        except Exception:
+            raise ValueError("El archivo no es una imagen válida")
+        perfil_data["foto"] = image_data  # Agregar imagen binaria
+    result = await mongo_db.perfil.insert_one(perfil_data)
+    return str(result.inserted_id)
+
+
+async def get_perfil_with_image(perfil_id: str) -> dict:
+    perfil = await mongo_db.perfil.find_one({"_id": ObjectId(perfil_id)})
+    if perfil:
+        perfil["_id"] = str(perfil["_id"])  # Convertir ObjectId a string
+        if perfil.get("foto"):
+            # Codificar la imagen en Base64
+            image_base64 = base64.b64encode(perfil["foto"]).decode("utf-8")
+            # Detectar el tipo de imagen (esto depende del tipo de archivo que almacenes)
+            # Suponiendo que la imagen esté en formato jpeg, usa el siguiente prefijo
+            perfil["foto"] = f"data:image/jpeg;base64,{image_base64}"
+    return perfil
 
 # Obtener perfil por ID
 async def get_perfil(perfil_id: str) -> dict:
@@ -69,7 +94,7 @@ async def create_user(db: AsyncSession, user: UserCreateSchema):
         email=user.email,
         password=hashed_password,  # Almacena la contraseña encriptada
         tipo_usuario=user.tipo_usuario,
-        perfil_id=user.perfil_id,
+        perfil_id=None,
         fechacreate=datetime.utcnow()
     )
     db.add(db_user)

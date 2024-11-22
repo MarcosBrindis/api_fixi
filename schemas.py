@@ -16,7 +16,7 @@ class Direccion(BaseModel):
  
 # Esquema de perfil para validación de datos
 class PerfilSchema(BaseModel):
-    foto: Optional[bytes]
+    foto: Optional[UploadFile]
     description: Optional[str]
     habilidades: Optional[List[str]] = []
     telefono: Optional[str]
@@ -32,7 +32,7 @@ class UserSchema(BaseModel):
     email: str
     tipo_usuario: str
     fechacreate: Optional[datetime] = None
-    perfil_id: Optional[int] = None
+    perfil_id: Optional[str] = None
 
     class Config:
         from_attributes = True  # Cambiado para Pydantic v2
@@ -54,7 +54,7 @@ class UserCreateSchema(BaseModel):
     email: str
     password: str
     tipo_usuario: str
-    perfil_id: Optional[int] = None
+  
     
 class UserLoginSchema(BaseModel):
     email: EmailStr
