@@ -19,12 +19,8 @@ import base64
 from PIL import Image
 from io import BytesIO
 
+
 #perfil
-
-async def create_perfil(perfil_data: dict):
-    result = await mongo_db.perfil.insert_one(perfil_data)
-    return str(result.inserted_id)
-
 async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes]):
     if image_data:
         try:
@@ -48,12 +44,6 @@ async def get_perfil_with_image(perfil_id: str) -> dict:
             perfil["foto"] = f"data:image/jpeg;base64,{image_base64}"
     return perfil
 
-# Obtener perfil por ID
-async def get_perfil(perfil_id: str) -> dict:
-    perfil = await mongo_db.perfil.find_one({"_id": ObjectId(perfil_id)})
-    if perfil:
-        perfil["_id"] = str(perfil["_id"])  # Convertir ObjectId a string
-    return perfil
 
 # Obtener todos los perfiles
 async def get_all_perfiles():
@@ -63,13 +53,20 @@ async def get_all_perfiles():
         perfil["_id"] = str(perfil["_id"])
     return perfiles
 
-# Actualizar un perfil
-async def update_perfil(perfil_id: str, perfil_data: dict):
+
+
+async def update_perfil_in_db(perfil_id: str, perfil_data: dict):
+    if "foto" in perfil_data and perfil_data["foto"] is None:
+        perfil_data.pop("foto")
     result = await mongo_db.perfil.update_one(
         {"_id": ObjectId(perfil_id)},
         {"$set": perfil_data}
     )
     return result.modified_count > 0
+
+
+
+
 
 # Eliminar un perfil
 async def delete_perfil(perfil_id: str):
@@ -88,19 +85,34 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 10):
     return result.scalars().all()
 
 async def create_user(db: AsyncSession, user: UserCreateSchema):
-    hashed_password = hash_password(user.password)  # Encripta la contraseña
+    hashed_password = hash_password(user.password)
     db_user = Users(
         name=user.name,
         email=user.email,
-        password=hashed_password,  # Almacena la contraseña encriptada
+        password=hashed_password,
         tipo_usuario=user.tipo_usuario,
-        perfil_id=None,
+        perfil_id=None,  # Confirmar que es `None`
         fechacreate=datetime.utcnow()
     )
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
+    # Debug temporal para inspeccionar los datos:
+    print(db_user)
+    print(db_user.perfil_id)
     return db_user
+
+
+async def assign_perfil_to_user(db: AsyncSession, user_id: int, perfil_id: str):
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    user.perfil_id = perfil_id
+    await db.commit()
+    await db.refresh(user)
+    return user
+
 
 async def update_user(db: AsyncSession, user_id: int, user_data: UserCreateSchema):
     db_user = await get_user(db, user_id)

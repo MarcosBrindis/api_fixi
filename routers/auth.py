@@ -38,7 +38,8 @@ async def login_for_access_token(form_data: UserLoginSchema, db: AsyncSession = 
     access_token = create_access_token(data={
         "sub": str(user.user_id),
         "email": user.email,
-        "tipo_usuario": user.tipo_usuario
+        "tipo_usuario": user.tipo_usuario,
+        "perfil_id": user.perfil_id
     })
 
     # Devuelve únicamente los campos necesarios
@@ -47,6 +48,6 @@ async def login_for_access_token(form_data: UserLoginSchema, db: AsyncSession = 
         "token_type": "bearer",
         "user_id": user.user_id,
         "email": user.email,
-        "tipo_usuario": user.tipo_usuario
-        
+        "tipo_usuario": user.tipo_usuario,
+        "perfil_id":user.perfil_id
     }

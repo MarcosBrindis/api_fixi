@@ -43,7 +43,7 @@ class TokenResponseSchema(BaseModel):
     user_id: int
     email: str
     tipo_usuario: str
-   
+    perfil_id: Optional[str] = None
 
     class Config:
         from_attributes = True

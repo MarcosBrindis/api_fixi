@@ -33,6 +33,7 @@ async def get_current_user(db: AsyncSession = Depends(get_db),
     user_id = int(payload.get("sub"))
     email = payload.get("email")
     tipo_usuario = payload.get("tipo_usuario")
+    perfil_id = payload.get("perfil_id")
     
     user_query = await db.execute(select(Users).filter(Users.user_id == user_id))
     user = user_query.scalars().first()
@@ -44,5 +45,7 @@ async def get_current_user(db: AsyncSession = Depends(get_db),
     return {
         "user_id": user.user_id,
         "email": email,
-        "tipo_usuario": tipo_usuario
+        "tipo_usuario": tipo_usuario,
+        "perfil_id": user.perfil_id
+        
     }

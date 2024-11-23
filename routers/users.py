@@ -26,8 +26,6 @@ async def read_user(
     return user
 
 
-
-
 @router.get("/", response_model=List[UserSchema])
 async def read_users(
     skip: int = 0,
@@ -44,9 +42,11 @@ async def read_users(
 
 @router.post("/", response_model=UserSchema)
 async def create_new_user(user: UserCreateSchema, db: AsyncSession = Depends(get_db)):
-    new_user = await create_user(db, user)
-    return new_user
-
+    try:
+        user = await create_user(db, user)
+        return user  # Asegúrate de que este objeto coincida con UserSchema
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear usuario: {str(e)}")
 
 
 @router.put("/{user_id}", response_model=UserSchema)
