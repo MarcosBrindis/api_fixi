@@ -17,6 +17,7 @@ class Direccion(BaseModel):
 # Esquema de perfil para validación de datos
 class PerfilSchema(BaseModel):
     foto: Optional[UploadFile]
+    imagenes: Optional[List[UploadFile]] = []
     description: Optional[str]
     habilidades: Optional[List[str]] = []
     telefono: Optional[str]

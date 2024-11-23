@@ -40,7 +40,7 @@ class PerfilModel(BaseModel):
     habilidades: Optional[List[str]] = []  
     telefono: Optional[str] = None
     direccion: Optional[dict] = None  # direccion guardada como un diccionario
-    
+    imagenes: Optional[List[bytes]] = [] 
     class Config:
         from_attributes = True  # Usa 'from_attributes' en lugar de 'orm_mode'
         str_strip_whitespace = True  # Elimina los espacios en blanco al inicio y final

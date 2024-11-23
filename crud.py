@@ -21,16 +21,17 @@ from io import BytesIO
 
 
 #perfil
-async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes]):
+async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes], images_data: Optional[List[bytes]]):
     if image_data:
         try:
             Image.open(BytesIO(image_data))  # Verifica si es una imagen válida
         except Exception:
             raise ValueError("El archivo no es una imagen válida")
         perfil_data["foto"] = image_data  # Agregar imagen binaria
+    if images_data:
+        perfil_data["imagenes"] = images_data 
     result = await mongo_db.perfil.insert_one(perfil_data)
     return str(result.inserted_id)
-
 
 async def get_perfil_with_image(perfil_id: str) -> dict:
     perfil = await mongo_db.perfil.find_one({"_id": ObjectId(perfil_id)})
@@ -42,6 +43,11 @@ async def get_perfil_with_image(perfil_id: str) -> dict:
             # Detectar el tipo de imagen (esto depende del tipo de archivo que almacenes)
             # Suponiendo que la imagen esté en formato jpeg, usa el siguiente prefijo
             perfil["foto"] = f"data:image/jpeg;base64,{image_base64}"
+        if perfil.get("imagenes"):
+            perfil["imagenes"] = [
+                f"data:image/jpeg;base64,{base64.b64encode(img).decode('utf-8')}" 
+                for img in perfil["imagenes"]
+            ]
     return perfil
 
 
@@ -53,20 +59,16 @@ async def get_all_perfiles():
         perfil["_id"] = str(perfil["_id"])
     return perfiles
 
-
-
-async def update_perfil_in_db(perfil_id: str, perfil_data: dict):
+async def update_perfil_in_db(perfil_id: str, perfil_data: dict,new_images: Optional[List[bytes]]):
     if "foto" in perfil_data and perfil_data["foto"] is None:
         perfil_data.pop("foto")
+    if new_images:
+        perfil_data["imagenes"] = new_images
     result = await mongo_db.perfil.update_one(
         {"_id": ObjectId(perfil_id)},
         {"$set": perfil_data}
     )
     return result.modified_count > 0
-
-
-
-
 
 # Eliminar un perfil
 async def delete_perfil(perfil_id: str):
@@ -533,6 +535,5 @@ async def delete_chat(db: AsyncSession, chat_id: int, user_id: int) -> Optional[
         await db.delete(db_chat)
         await db.commit()
     return db_chat
-
 
 #-------------------------------------------------------------------------------------

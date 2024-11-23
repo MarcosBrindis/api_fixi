@@ -23,6 +23,7 @@ async def create(
     telefono: str = Form(None),
     direccion: str = Form(default="{}"),
     foto: UploadFile = File(None),
+    imagenes: List[UploadFile] = File([]), 
     current_user: dict = Depends(get_current_user),  # Obtener usuario logueado
     db: AsyncSession = Depends(get_db)  # Sesión de base de datos
 ):
@@ -44,6 +45,7 @@ async def create(
 
     # Leer la imagen si se proporcionó
     image_data = await foto.read() if foto else None
+    images_data = [await img.read() for img in imagenes] if imagenes else []
     if image_data:
         try:
             Image.open(BytesIO(image_data))  # Verifica si es una imagen válida
@@ -57,7 +59,7 @@ async def create(
         "direccion": direccion,
     }
     try:
-        perfil_id = await create_perfil_with_image(perfil_data, image_data)
+        perfil_id = await create_perfil_with_image(perfil_data, image_data, images_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al crear el perfil: {str(e)}")
     # Asociar perfil al usuario en PostgreSQL
@@ -106,6 +108,7 @@ async def update_perfil(
     telefono: str = Form(None),
     direccion: str = Form(default="{}"),
     foto: UploadFile = File(None),  # Debe ser UploadFile
+    imagenes: List[UploadFile] = File([]),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)  # Obtener usuario logueado
 ):  
@@ -123,6 +126,7 @@ async def update_perfil(
         )
 
     # Leer la imagen si se proporciona
+    new_images = [await img.read() for img in imagenes] if imagenes else []
     image_data = None
     if foto:
         try:
@@ -141,10 +145,11 @@ async def update_perfil(
     }
     if image_data:
         perfil_data["foto"] = image_data  # Agregar la imagen binaria
+    
     # Filtrar claves nulas
     perfil_data = {k: v for k, v in perfil_data.items() if v is not None}
     # Actualizar el perfil en MongoDB
-    updated = await update_perfil_in_db(perfil_id, perfil_data)
+    updated = await update_perfil_in_db(perfil_id, perfil_data, new_images)
     if not updated:
         raise HTTPException(status_code=500, detail="Error al actualizar el perfil")
     return updated
