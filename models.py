@@ -40,7 +40,7 @@ class PerfilModel(BaseModel):
     habilidades: Optional[List[str]] = []  
     telefono: Optional[str] = None
     direccion: Optional[dict] = None  # direccion guardada como un diccionario
-    imagenes: Optional[List[bytes]] = [] 
+    imagenes: Optional[List[bytes]] = []
     class Config:
         from_attributes = True  # Usa 'from_attributes' en lugar de 'orm_mode'
         str_strip_whitespace = True  # Elimina los espacios en blanco al inicio y final
@@ -121,7 +121,6 @@ class Servicio(Base):
     proveedor_id = Column(Integer, ForeignKey("users.user_id"))
     disponibilidadpago = Column(Boolean, default=True)
     descripcion=Column(Text)
-    imagenes = Column(ARRAY(LargeBinary))
     proveedor = relationship("Users", back_populates="servicios")
     calificaciones = relationship('Calificacion', back_populates='servicio')
     
@@ -138,6 +137,7 @@ class Solicitud(Base):
     cliente_id = Column(Integer, ForeignKey("users.user_id"))
     servicio_id = Column(Integer, ForeignKey("servicio.servicio_id"))
     cancelado = Column(Boolean, default=False)
+    pagado = Column(Boolean, default=False)
     cliente = relationship("Users", back_populates="solicitudes")
     servicio = relationship("Servicio")
 
@@ -165,7 +165,7 @@ class Pago(Base):
     direccion = Column(JSON)  # Se eliminó la coma innecesaria
     tarjeta = Column(JSON)  # Se eliminó la coma innecesaria
     solicitud = relationship("Solicitud")
-
+    
 
 
 class Calificacion(Base):
@@ -193,5 +193,4 @@ class Chat(Base):
 
     proveedor = relationship("Users", foreign_keys=[resepto_id])
     cliente = relationship("Users", foreign_keys=[emisor_id])
-    
     

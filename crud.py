@@ -20,8 +20,9 @@ from PIL import Image
 from io import BytesIO
 
 
+
 #perfil
-async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes], images_data: Optional[List[bytes]]):
+async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes],images_data: Optional[List[bytes]]):
     if image_data:
         try:
             Image.open(BytesIO(image_data))  # Verifica si es una imagen válida
@@ -29,9 +30,10 @@ async def create_perfil_with_image(perfil_data: dict, image_data: Optional[bytes
             raise ValueError("El archivo no es una imagen válida")
         perfil_data["foto"] = image_data  # Agregar imagen binaria
     if images_data:
-        perfil_data["imagenes"] = images_data 
+        perfil_data["imagenes"] = images_data
     result = await mongo_db.perfil.insert_one(perfil_data)
     return str(result.inserted_id)
+
 
 async def get_perfil_with_image(perfil_id: str) -> dict:
     perfil = await mongo_db.perfil.find_one({"_id": ObjectId(perfil_id)})
@@ -49,6 +51,16 @@ async def get_perfil_with_image(perfil_id: str) -> dict:
                 for img in perfil["imagenes"]
             ]
     return perfil
+
+async def assign_perfil_to_user(db: AsyncSession, user_id: int, perfil_id: str):
+    user = await get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    user.perfil_id = perfil_id
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 # Obtener todos los perfiles
@@ -70,11 +82,11 @@ async def update_perfil_in_db(perfil_id: str, perfil_data: dict,new_images: Opti
     )
     return result.modified_count > 0
 
+
 # Eliminar un perfil
 async def delete_perfil(perfil_id: str):
     result = await mongo_db.perfil.delete_one({"_id": ObjectId(perfil_id)})
-    return result.deleted_count > 0
-
+    return result.deleted_count > 0 
 #-------------------------------------------------------------------------------
 
 # CRUD for Users
@@ -87,34 +99,19 @@ async def get_users(db: AsyncSession, skip: int = 0, limit: int = 10):
     return result.scalars().all()
 
 async def create_user(db: AsyncSession, user: UserCreateSchema):
-    hashed_password = hash_password(user.password)
+    hashed_password = hash_password(user.password)  # Encripta la contraseña
     db_user = Users(
         name=user.name,
         email=user.email,
-        password=hashed_password,
+        password=hashed_password,  # Almacena la contraseña encriptada
         tipo_usuario=user.tipo_usuario,
-        perfil_id=None,  # Confirmar que es `None`
+        perfil_id=None,
         fechacreate=datetime.utcnow()
     )
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
-    # Debug temporal para inspeccionar los datos:
-    print(db_user)
-    print(db_user.perfil_id)
     return db_user
-
-
-async def assign_perfil_to_user(db: AsyncSession, user_id: int, perfil_id: str):
-    user = await get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    user.perfil_id = perfil_id
-    await db.commit()
-    await db.refresh(user)
-    return user
-
 
 async def update_user(db: AsyncSession, user_id: int, user_data: UserCreateSchema):
     db_user = await get_user(db, user_id)
@@ -130,12 +127,41 @@ async def update_user(db: AsyncSession, user_id: int, user_data: UserCreateSchem
         await db.refresh(db_user)
     return db_user
 
+
 async def delete_user(db: AsyncSession, user_id: int):
+    # Buscar el usuario a eliminar
     db_user = await get_user(db, user_id)
-    if db_user:
-        await db.delete(db_user)
-        await db.commit()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Determinar el tipo de usuario y eliminar registros relacionados
+    if db_user.tipo_usuario == "Proveedor":
+        # Eliminar el registro de la tabla proveedor
+        proveedor = await db.execute(
+            select(Proveedor).filter(Proveedor.user_id == user_id)
+        )
+        proveedor = proveedor.scalars().first()
+        if proveedor:
+            await db.delete(proveedor)
+    elif db_user.tipo_usuario == "Cliente":
+        # Eliminar el registro de la tabla cliente
+        cliente = await db.execute(
+            select(Cliente).filter(Cliente.user_id == user_id)
+        )
+        cliente = cliente.scalars().first()
+        if cliente:
+            await db.delete(cliente)
+    # Finalmente, eliminar el usuario
+    await db.delete(db_user)
+    await db.commit()
     return db_user
+
+
+async def get_proveedor_by_user_id(db: AsyncSession, user_id: int):
+    result = await db.execute(select(Proveedor).filter(Proveedor.user_id == user_id))
+    return result.scalars().first()
+
+
+
 
 #------------------------------------------------------------------------------------------
 
@@ -338,14 +364,28 @@ async def delete_historial(db: AsyncSession, historial_id: int):
 #-----------------------------------------------------------------------
 
 # Crear Pago
-async def create_pago(db: AsyncSession, pago: PagoCreateSchema):
+async def create_pago(db: AsyncSession, pago_data: PagoCreateSchema,  user_id: int):
+    # Obtener la solicitud asociada
+    result = await db.execute(select(Solicitud).filter(Solicitud.solicitud_id == pago_data.solicitud_id))
+    db_solicitud = result.scalars().first()
+    if not db_solicitud:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+        # Verificar que el usuario actual sea el cliente que creó la solicitud
+    if db_solicitud.cliente_id != user_id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para pagar esta solicitud")
+    # Verificar que el status sea 'ACEPTADO'
+    if db_solicitud.status != "ACEPTADO":
+        raise HTTPException(status_code=400, detail="La solicitud no está aceptada, no se puede procesar el pago")
+    # Verificar que la solicitud no esté pagada
+    if db_solicitud.pagado:
+        raise HTTPException(status_code=400, detail="La solicitud ya ha sido pagada")
     # Convertir los campos de direccion y tarjeta desde el modelo Pydantic
     db_pago = Pago(
-        monto=pago.monto,
-        cliente_id=pago.cliente_id,
-        solicitud_id=pago.solicitud_id,
-        direccion=pago.direccion.dict(),  # Convertir el modelo Pydantic a dict
-        tarjeta=pago.tarjeta.dict()  # Convertir el modelo Pydantic a dict
+        monto=db_solicitud.costo,
+        cliente_id=user_id,
+        solicitud_id=pago_data.solicitud_id,
+        direccion=pago_data.direccion.dict(),  # Convertir el modelo Pydantic a dict
+        tarjeta=pago_data.tarjeta.dict()  # Convertir el modelo Pydantic a dict
     )
     db.add(db_pago)
     await db.commit()
@@ -362,8 +402,8 @@ async def create_pago(db: AsyncSession, pago: PagoCreateSchema):
 
 
 # Obtener Pago por ID
-async def get_pago(db: AsyncSession, pago_id: int):
-    result = await db.execute(select(Pago).filter(Pago.pago_id == pago_id))
+async def get_pago(db: AsyncSession,user_id: int, pago_id: int):
+    result = await db.execute(select(Pago).filter(Pago.cliente_id == user_id).filter(Pago.pago_id == pago_id))
     db_pago = result.scalars().first()
     if db_pago:
         # Convertir los campos JSON a objetos Pydantic
@@ -378,10 +418,9 @@ async def get_pago(db: AsyncSession, pago_id: int):
     return None
 
 
-async def get_pagos(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(select(Pago).offset(skip).limit(limit))
+async def get_pagos(db: AsyncSession,user_id: int, skip: int = 0, limit: int = 10):
+    result = await db.execute(select(Pago).filter(Pago.cliente_id == user_id).offset(skip).limit(limit))
     pagos = result.scalars().all()
-    
     # Deserializar los campos JSON en instancias de Pydantic
     return [
         PagoSchema(
@@ -535,5 +574,6 @@ async def delete_chat(db: AsyncSession, chat_id: int, user_id: int) -> Optional[
         await db.delete(db_chat)
         await db.commit()
     return db_chat
+
 
 #-------------------------------------------------------------------------------------

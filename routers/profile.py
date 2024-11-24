@@ -23,7 +23,7 @@ async def create(
     telefono: str = Form(None),
     direccion: str = Form(default="{}"),
     foto: UploadFile = File(None),
-    imagenes: List[UploadFile] = File([]), 
+    imagenes: List[UploadFile] = File([]),
     current_user: dict = Depends(get_current_user),  # Obtener usuario logueado
     db: AsyncSession = Depends(get_db)  # Sesión de base de datos
 ):
@@ -44,8 +44,8 @@ async def create(
         raise HTTPException(status_code=400, detail="Habilidades o dirección no tienen el formato JSON correcto")
 
     # Leer la imagen si se proporcionó
-    image_data = await foto.read() if foto else None
     images_data = [await img.read() for img in imagenes] if imagenes else []
+    image_data = await foto.read() if foto else None
     if image_data:
         try:
             Image.open(BytesIO(image_data))  # Verifica si es una imagen válida
@@ -59,7 +59,7 @@ async def create(
         "direccion": direccion,
     }
     try:
-        perfil_id = await create_perfil_with_image(perfil_data, image_data, images_data)
+        perfil_id = await create_perfil_with_image(perfil_data, image_data,images_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al crear el perfil: {str(e)}")
     # Asociar perfil al usuario en PostgreSQL
@@ -68,11 +68,11 @@ async def create(
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Error al asociar el perfil al usuario: {str(e)}")
     return {"id": perfil_id}
-  
-    
-    
-    
-    
+      
+        
+        
+        
+        
 # Obtener perfil por ID, solo el usuario logueado o un admin puede acceder
 @router.get("/{perfil_id}", response_model=dict)
 async def read_one(
@@ -112,7 +112,7 @@ async def update_perfil(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)  # Obtener usuario logueado
 ):  
-    
+    print(f"Decoded Token: {get_current_user}")
     # Validar que el perfil_id corresponde al usuario logueado o que el usuario es admin
     if perfil_id != str(current_user["perfil_id"]):
         raise HTTPException(status_code=403, detail="No autorizado para actualizar este perfil")
@@ -124,7 +124,6 @@ async def update_perfil(
         raise HTTPException(
             status_code=400, detail="Habilidades o dirección no tienen el formato JSON correcto"
         )
-
     # Leer la imagen si se proporciona
     new_images = [await img.read() for img in imagenes] if imagenes else []
     image_data = None

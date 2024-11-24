@@ -25,15 +25,11 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes
 @router.post("/token", response_model=TokenResponseSchema)
 async def login_for_access_token(form_data: UserLoginSchema, db: AsyncSession = Depends(get_db)):
     # Log para inspeccionar el payload recibido
-
-
     # Busca usuario en la base de datos
     user_query = await db.execute(select(Users).filter(Users.email == form_data.email))
     user = user_query.scalars().first()
-
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
     # Genera el token con los campos permitidos
     access_token = create_access_token(data={
         "sub": str(user.user_id),
@@ -41,7 +37,6 @@ async def login_for_access_token(form_data: UserLoginSchema, db: AsyncSession = 
         "tipo_usuario": user.tipo_usuario,
         "perfil_id": user.perfil_id
     })
-
     # Devuelve únicamente los campos necesarios
     return {
         "access_token": access_token,

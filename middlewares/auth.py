@@ -49,3 +49,4 @@ async def get_current_user(db: AsyncSession = Depends(get_db),
         "perfil_id": user.perfil_id
         
     }
+

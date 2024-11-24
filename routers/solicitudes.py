@@ -37,9 +37,6 @@ async def obtener_solicitudes(
     return await get_solicitudes(db, current_user, skip=skip, limit=limit)
 
 
-
-
-
 @router.put("/{solicitud_id}/status", response_model=Solicitud)
 async def actualizar_status_solicitud(
     solicitud_id: int, 
