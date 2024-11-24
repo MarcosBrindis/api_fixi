@@ -121,7 +121,6 @@ class Servicio(Base):
     proveedor_id = Column(Integer, ForeignKey("users.user_id"))
     disponibilidadpago = Column(Boolean, default=True)
     descripcion=Column(Text)
-    imagenes = Column(ARRAY(LargeBinary))
     proveedor = relationship("Users", back_populates="servicios")
     calificaciones = relationship('Calificacion', back_populates='servicio')
     
@@ -138,6 +137,7 @@ class Solicitud(Base):
     cliente_id = Column(Integer, ForeignKey("users.user_id"))
     servicio_id = Column(Integer, ForeignKey("servicio.servicio_id"))
     cancelado = Column(Boolean, default=False)
+    pagado = Column(Boolean, default=False)
     cliente = relationship("Users", back_populates="solicitudes")
     servicio = relationship("Servicio")
 

@@ -26,23 +26,33 @@ def verify_token(token: str) -> dict:
     except JWTError:
         raise HTTPException(status_code=403, detail="Could not validate credentials")
 
-async def get_current_user(db: AsyncSession = Depends(get_db),
-    token: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
-    
-    payload = verify_token(token.credentials)
-    user_id = int(payload.get("sub"))
-    email = payload.get("email")
-    tipo_usuario = payload.get("tipo_usuario")
-    
-    user_query = await db.execute(select(Users).filter(Users.user_id == user_id))
-    user = user_query.scalars().first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Retorna solo los datos necesarios del usuario
-    return {
-        "user_id": user.user_id,
-        "email": email,
-        "tipo_usuario": tipo_usuario
-    }
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    token: HTTPAuthorizationCredentials = Depends(oauth2_scheme)
+):
+    try:
+        payload = verify_token(token.credentials)
+        user_id = int(payload.get("sub"))
+        email = payload.get("email")
+        tipo_usuario = payload.get("tipo_usuario")
+        
+        print(f"Decoded Token: {payload}")  # Log para inspeccionar el payload del token
+
+        user_query = await db.execute(select(Users).filter(Users.user_id == user_id))
+        user = user_query.scalars().first()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "user_id": user.user_id,
+            "email": email,
+            "tipo_usuario": tipo_usuario
+        }
+    except HTTPException as e:
+        print(f"HTTPException: {e.detail}")
+        raise e
+    except Exception as e:
+        print(f"Error verifying user: {e}")
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+

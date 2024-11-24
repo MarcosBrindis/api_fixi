@@ -43,7 +43,7 @@ class TokenResponseSchema(BaseModel):
     user_id: int
     email: str
     tipo_usuario: str
-   
+    perfil_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -54,7 +54,7 @@ class UserCreateSchema(BaseModel):
     email: str
     password: str
     tipo_usuario: str
-    perfil_id: Optional[int] = None
+    
     
 class UserLoginSchema(BaseModel):
     email: EmailStr
@@ -74,7 +74,7 @@ class ClienteCreateSchema(BaseModel):
 class ProveedorSchema(BaseModel):
     proveedor_id: int
     user_id: int
-    ingresos: condecimal(gt=0) = 0
+    ingresos: float = 0
     verificado: bool = False
 
     class Config:
@@ -125,8 +125,6 @@ class ServicioCreateSchema(BaseModel):
     disponibilidadpago: Optional[bool] = True
     descripcion: Optional[str] = None
     
-class ServicioImageUploadSchema(BaseModel):
-    files: List[UploadFile] 
 #------------------------------------------------
 
 class SolicitudBase(BaseModel):
@@ -143,6 +141,7 @@ class Solicitud(SolicitudBase):
     fecha: datetime
     costo: condecimal(gt=0)
     cancelado:bool
+    pagado:bool
     class Config:
         orm_mode = True
         
@@ -197,8 +196,6 @@ class PagoSchema(BaseModel):
         orm_mode = True
 
 class PagoCreateSchema(BaseModel):
-    monto: condecimal(gt=0)
-    cliente_id: int
     solicitud_id: int
     direccion: DireccionSchema
     tarjeta: TarjetaSchema
